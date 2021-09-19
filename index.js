@@ -9,6 +9,8 @@ const io = require("socket.io")(httpServer, {
 });
 const porta = 3000;
 
+const mensagens = new Map();
+
 app.get('/', (req, res) => {
   res.send('<h1>Server is ON!</h1>');
 });
@@ -17,7 +19,9 @@ io.on('connection', (socket) => {
   console.log('a user connected');  
   
   setupSession(socket);
-  sendUsers(socket);  
+  setupRoom(socket);
+  sendAllCards(socket);
+  newItemEvent(socket);
 
   socket.on('disconnect', () => {
     console.log('user disconnected');
@@ -53,12 +57,23 @@ function setupSession(socket) {
   socket.emit('session', sessionData);
 }
 
-function sendUsers(socket) {
-  const users = [];
-
-  for (let [id, socket] of io.of("/").sockets) {
-    users.push(id);
+function setupRoom(socket) {
+  let { retroId } = socket.handshake.query;
+  if (!mensagens.has(retroId)) {
+    mensagens.set(retroId, []);
   }
+}
 
-  socket.emit("users", users);
+function sendAllCards(socket) {
+  let { retroId } = socket.handshake.query;
+  console.log(mensagens.get(retroId));
+  socket.emit("allItens", mensagens.get(retroId));
+}
+
+function newItemEvent(socket) {
+  socket.on("newItem", (item) => {
+    mensagens.get(item.retroId).push(item);
+    io.to(item.retroId).emit("newItem", item);
+    console.log(mensagens.get(item.retroId));
+  });
 }
